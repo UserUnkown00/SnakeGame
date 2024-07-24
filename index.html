@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Snake Game with Score, Highscore, and Turbo</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden; /* Prevent scrolling outside the game */
+    }
+
+    body {
+      background: #222; /* Dark background */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      border: 1px solid white;
+    }
+
+    #score, #highscore, #turbo {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    .turbo-gauge {
+      width: 100px;
+      height: 20px;
+      border: 1px solid white;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .turbo-bar {
+      height: 100%;
+      background-color: #00FF00; /* Green color for turbo gauge */
+      position: absolute;
+      top: 0;
+      left: 0;
+      transition: width 0.1s linear; /* Smooth width transition */
+    }
+  </style>
+</head>
+<body>
+  <div id="score">Score: 0</div>
+  <div id="highscore">Highscore: 0</div>
+  <div id="turbo">Turbo: <span id="turbo-value">100</span></div>
+  <div class="turbo-gauge">
+    <div class="turbo-bar" id="turbo-bar"></div>
+  </div>
+  <canvas width="400" height="400" id="game"></canvas>
+  <script>
+    var canvas = document.getElementById('game');
+    var context = canvas.getContext('2d');
+
+    var grid = 16;
+    var count = 0;
+    var score = 0;
+    var highscore = 0;
+    var turns = 0; // Track number of turns
+    var fruitSize = grid; // Initial size of the fruit
+    var turbo = 100; // Initial turbo gauge (in percentage)
+    var turboConsumptionRate = 1; // Turbo consumption rate (percentage per frame)
+    var turboRegenerationRate = 0.5; // Turbo regeneration rate (percentage per frame)
+    var turboIntervalId = null; // ID to track turbo regeneration interval
+    var turboActive = false; // Flag to indicate if turbo is active
+    var turboSpeedMultiplier = 2; // Speed multiplier when turbo is active
+
+    var snake = {
+      x: 160,
+      y: 160,
+      dx: grid,
+      dy: 0,
+      cells: [],
+      maxCells: 4,
+      size: grid, // Initial size of snake cell
+      tail: [], // Array to store tail elements
+      tailLength: 3, // Initial length of snake tail
+      headImages: {
+        up: new Image(),
+        down: new Image(),
+        left: new Image(),
+        right: new Image()
+      },
+      currentDirection: 'right' // Initial direction of the snake
+    };
+
+    // Load snake head images
+    snake.headImages.up.src = 'snake-head-up.png'; // Replace with your snake head image URL facing up
+    snake.headImages.down.src = 'snake-head-down.png'; // Replace with your snake head image URL facing down
+    snake.headImages.left.src = 'snake-head-left.png'; // Replace with your snake head image URL facing left
+    snake.headImages.right.src = 'snake-head-right.png'; // Replace with your snake head image URL facing right
+
+    var apple = {
+      x: 320,
+      y: 320,
+      size: grid, // Size of the apple
+      image: new Image() // Apple image
+    };
+
+    // Load apple image
+    apple.image.src = 'apple-icon.png'; // Replace with your apple icon image URL
+
+    function getRandomInt(min, max) {
+      return Math.floor(Math.random() * (max - min)) + min;
+    }
+
+    function loop() {
+      requestAnimationFrame(loop);
+
+      if (++count < 4) {
+        return;
+      }
+
+      count = 0;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+
+      snake.x += snake.dx * (turboActive ? turboSpeedMultiplier : 1);
+      snake.y += snake.dy * (turboActive ? turboSpeedMultiplier : 1);
+
+      // Constrain snake within the canvas
+      if (snake.x < 0 || snake.x >= canvas.width || snake.y < 0 || snake.y >= canvas.height) {
+        gameOver();
+      }
+
+      snake.cells.unshift({ x: snake.x, y: snake.y });
+
+      // Increase snake size dynamically
+      if (snake.cells.length > snake.maxCells) {
+        snake.cells.pop();
+      }
+
+      // Draw apple
+      context.drawImage(apple.image, apple.x, apple.y, apple.size, apple.size);
+
+      // Draw snake
+      drawSnake();
+
+      // Check if snake eats the apple
+      snake.cells.forEach(function (cell, index) {
+        if (cell.x === apple.x && cell.y === apple.y) {
+          snake.maxCells++;
+          turns++;
+          if (turns % 5 === 0) {
+            score += 3000; // Increase score by 3000 every 5th fruit
+            apple.size += grid / 2; // Increase fruit size
+          } else {
+            score += 1000; // Increase score by 1000 for regular fruits
+          }
+          document.getElementById('score').textContent = 'Score: ' + score;
+
+          // Update highscore if current score is higher
+          if (score > highscore) {
+            highscore = score;
+            document.getElementById('highscore').textContent = 'Highscore: ' + highscore;
+          }
+
+          // Respawn the apple
+          apple.x = getRandomInt(0, canvas.width / grid) * grid;
+          apple.y = getRandomInt(0, canvas.height / grid) * grid;
+          apple.size = grid; // Reset fruit size
+        }
+      });
+
+      // Check collision with itself
+      for (var i = 1; i < snake.cells.length; i++) {
+        if (snake.cells[0].x === snake.cells[i].x && snake.cells[0].y === snake.cells[i].y) {
+          gameOver();
+        }
+      }
+
+      // Update turbo gauge
+      updateTurbo();
+    }
+
+    function drawSnake() {
+      // Determine snake head image based on current direction
+      var headImage;
+      switch (snake.currentDirection) {
+        case 'up':
+          headImage = snake.headImages.up;
+          break;
+        case 'down':
+          headImage = snake.headImages.down;
+          break;
+        case 'left':
+          headImage = snake.headImages.left;
+          break;
+        case 'right':
+          headImage = snake.headImages.right;
+          break;
+        default:
+          headImage = snake.headImages.right; // Default to right if direction is unknown
+      }
+
+      // Draw snake head
+      context.drawImage(headImage, snake.cells[0].x, snake.cells[0].y, snake.size, snake.size);
+
+      // Draw snake body
+      for (var i = 1; i < snake.cells.length; i++) {
+        context.fillStyle = '#2E8B57'; // Sea green color for body segments
+        context.fillRect(snake.cells[i].x, snake.cells[i].y, snake.size, snake.size);
+      }
+
+      // Draw snake tail
+      for (var i = 0; i < snake.tail.length; i++) {
+        var tailSegment = snake.tail[i];
+        context.fillStyle = '#2E8B57'; // Sea green color for tail segments
+        context.fillRect(tailSegment.x, tailSegment.y, snake.size, snake.size);
+      }
+
+      // Update snake tail
+      snake.tail.unshift({ x: snake.cells[0].x, y: snake.cells[0].y });
+
+      // Trim tail array
+      while (snake.tail.length > snake.tailLength) {
+        snake.tail.pop();
+      }
+    }
+
+    function updateTurbo() {
+      // Continuous turbo consumption while spacebar is held down
+      if (turboActive && turbo >= turboConsumptionRate) {
+        turbo -= turboConsumptionRate;
+        updateTurboVisual();
+        document.getElementById('turbo-value').textContent = turbo.toFixed(0) + '%';
+      }
+
+      // Restore turbo gauge over time
+      if (!turboIntervalId && !turboActive) {
+        turboIntervalId = setInterval(function () {
+          if (turbo < 100) {
+            turbo += turboRegenerationRate;
+            updateTurboVisual();
+          }
+          document.getElementById('turbo-value').textContent = turbo.toFixed(0) + '%';
+        }, 100); // Adjust regeneration rate as needed
+      }
+    }
+
+    function updateTurboVisual() {
+      var turboBar = document.getElementById('turbo-bar');
+      turboBar.style.width = turbo + '%';
+    }
+
+    document.addEventListener('keydown', function (e) {
+      // Hold spacebar to activate turbo
+      if (e.key === ' ' && turbo >= turboConsumptionRate && !turboActive) {
+        turboActive = true;
+        clearInterval(turboIntervalId);
+        turboIntervalId = null;
+      }
+
+      // Arrow keys control snake movement
+      if (e.key === 'ArrowLeft' && snake.dx === 0) {
+        snake.dx = -grid;
+        snake.dy = 0;
+        snake.currentDirection = 'left';
+      } else if (e.key === 'ArrowUp' && snake.dy === 0) {
+        snake.dy = -grid;
+        snake.dx = 0;
+        snake.currentDirection = 'up';
+      } else if (e.key === 'ArrowRight' && snake.dx === 0) {
+        snake.dx = grid;
+        snake.dy = 0;
+        snake.currentDirection = 'right';
+      } else if (e.key === 'ArrowDown' && snake.dy === 0) {
+        snake.dy = grid;
+        snake.dx = 0;
+        snake.currentDirection = 'down';
+      }
+    });
+
+    document.addEventListener('keyup', function (e) {
+      // Release spacebar to deactivate turbo
+      if (e.key === ' ' && turboActive) {
+        turboActive = false;
+      }
+    });
+
+    function gameOver() {
+      alert('Game Over! Your Score: ' + score);
+      snake.x = 160;
+      snake.y = 160;
+      snake.cells = [];
+      snake.maxCells = 4;
+      snake.dx = grid;
+      snake.dy = 0;
+      snake.tail = [];
+      snake.tailLength = 3;
+      score = 0;
+      turns = 0;
+      turbo = 100;
+      document.getElementById('score').textContent = 'Score: ' + score;
+      document.getElementById('turbo-value').textContent = turbo.toFixed(0) + '%';
+      clearInterval(turboIntervalId);
+      turboIntervalId = null;
+      apple.x = getRandomInt(0, canvas.width / grid) * grid;
+      apple.y = getRandomInt(0, canvas.height / grid) * grid;
+      apple.size = grid;
+    }
+
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
