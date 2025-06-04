@@ -33,7 +33,7 @@
     }
 
     #score, #highscore, #turbo {
-      font-size: 24px;
+      font-size: 30px;
       margin-bottom: 10px;
     }
 
@@ -60,7 +60,7 @@
   <div id="playerName"></div>
   <div id="score">Score: 0</div>
   <div id="highscore">Highscore: 0</div>
-  <div id="turbo">Turbo: <span id="turbo-value">100</span></div>
+  <div id="turbo">Turbo : <span id="turbo-value">100</span></div>
   <div class="turbo-gauge">
     <div class="turbo-bar" id="turbo-bar"></div>
   </div>
@@ -73,7 +73,7 @@
     var playerName = localStorage.getItem('playerName') || 'Player';
 
     // Display player name
-    document.getElementById('playerName').textContent = 'Player Name: ' + playerName;
+    document.getElementById('playerName').textContent = 'Player Name : ' + playerName;
 
     var grid = 16;
     var count = 0;
@@ -105,7 +105,7 @@
         left: new Image(),
         right: new Image()
       },
-      currentDirection: 'right' // Initial direction of the snake
+      currentDirection: 'down' // Initial direction of the snake
     };
 
     // Load snake head images
@@ -167,9 +167,9 @@
       snake.maxCells++;
       turns++;
       if (turns % 5 === 0) {
-        score += 3000; // Increase score by 3000 every 5th fruit
+        score += 500; // Increase score by 3000 every 5th fruit
       } else {
-        score += 1000; // Increase score by 1000 for regular fruits
+        score += 100; // Increase score by 1000 for regular fruits
       }
 
       document.getElementById('score').textContent = 'Score: ' + score;
